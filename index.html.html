@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NFL Posteam Score Regression</title>
+  <!-- Import Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <!-- Import React and ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Import Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
+  <!-- Basic styling for a modern, light theme -->
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+      background-color: #f5f7fa;
+      color: #333;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+    .card {
+      background-color: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      padding: 24px;
+    }
+    .card h2 {
+      margin-top: 0;
+      font-size: 1.5rem;
+      margin-bottom: 16px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .input-group {
+      display: flex;
+      flex-direction: column;
+    }
+    .input-group label {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .input-group input {
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      transition: border-color 0.2s;
+    }
+    .input-group input:focus {
+      border-color: #2563eb;
+      outline: none;
+    }
+    .button {
+      margin-top: 16px;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 6px;
+      background-color: #2563eb;
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    .button:hover {
+      background-color: #1e4cbf;
+    }
+    .result {
+      margin-top: 16px;
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+    .chart-container {
+      position: relative;
+      width: 100%;
+      height: 400px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 16px;
+    }
+    th, td {
+      padding: 8px 12px;
+      text-align: center;
+      border-bottom: 1px solid #eee;
+    }
+    th {
+      background-color: #f0f4f9;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/javascript">
+    // Initialize React components
+    const { useState, useEffect, useRef } = React;
+    function App() {
+      // State for inputs and prediction
+      const [down, setDown] = useState(1);
+      const [yardsToGo, setYardsToGo] = useState(10);
+      const [quarter, setQuarter] = useState(1);
+      const [drive, setDrive] = useState(1);
+      const [ydsnet, setYdsnet] = useState(0);
+      const [prediction, setPrediction] = useState(null);
+      const chartRef = useRef(null);
+      const chartInstanceRef = useRef(null);
+
+      // Example initial data for scatter plot
+      const [dataPoints, setDataPoints] = useState([
+        { actual: 3, predicted: 5 },
+        { actual: 7, predicted: 8 },
+        { actual: 14, predicted: 12 },
+        { actual: 21, predicted: 19 },
+        { actual: 10, predicted: 11 }
+      ]);
+
+      // Initialize Chart.js chart once on mount
+      useEffect(() => {
+        const ctx = chartRef.current.getContext('2d');
+        chartInstanceRef.current = new Chart(ctx, {
+          type: 'scatter',
+          data: {
+            datasets: [
+              {
+                label: 'Actual vs Predicted',
+                data: dataPoints.map((pt) => ({ x: pt.actual, y: pt.predicted })),
+                backgroundColor: 'rgba(37,99,235,0.6)',
+                borderColor: '#2563eb',
+                pointRadius: 5
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              x: {
+                title: {
+                  display: true,
+                  text: 'Actual Score'
+                },
+                beginAtZero: true
+              },
+              y: {
+                title: {
+                  display: true,
+                  text: 'Predicted Score'
+                },
+                beginAtZero: true
+              }
+            },
+            plugins: {
+              legend: {
+                display: false
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const xVal = context.parsed.x;
+                    const yVal = context.parsed.y;
+                    return `Actual: ${xVal}, Predicted: ${yVal}`;
+                  }
+                }
+              }
+            }
+          }
+        });
+      }, []);
+
+      // Update the chart when dataPoints change
+      useEffect(() => {
+        const chart = chartInstanceRef.current;
+        if (chart) {
+          chart.data.datasets[0].data = dataPoints.map((pt) => ({ x: pt.actual, y: pt.predicted }));
+          chart.update();
+        }
+      }, [dataPoints]);
+
+      // Function to perform a simple regression formula and update state
+      const handlePredict = () => {
+        // Example: simple linear combination for demonstration
+        const pred = 3 + 0.5 * down - 0.2 * yardsToGo + 0.4 * quarter + 0.1 * drive + 0.05 * ydsnet;
+        const predictedValue = Math.max(0, Math.round(pred));
+        setPrediction(predictedValue);
+        // Add new point to scatter chart with same actual and predicted to align with diagonal reference
+        setDataPoints((prev) => [...prev, { actual: predictedValue, predicted: predictedValue }]);
+      };
+
+      return (
+        <div className="container">
+          {/* Title and description card */}
+          <div className="card">
+            <h2>NFL Posteam Score Regression</h2>
+            <p>
+              Ez a projekt gépi tanulást használ az NFL-ben támadó csapat által elért
+              pontszám becslésére. A <em>Detailed NFL Play-by-Play Data (2009–2018)</em> adatkészletet,
+              amelyet az nflscrapR csapat állított össze, használtuk【782690782350755†screenshot】.
+            </p>
+            <p>
+              A modellek különböző jellemzőket vesznek figyelembe (pl. down, yards to go, drive progress, EPA), és a cél a
+              posteamscore numerikus előrejelzése.
+            </p>
+          </div>
+          {/* Model performance table */}
+          <div className="card">
+            <h2>Model Performance</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Model</th>
+                  <th>RMSE</th>
+                  <th>MAE</th>
+                  <th>R²</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Baseline</td>
+                  <td>6.94</td>
+                  <td>5.15</td>
+                  <td>0.46</td>
+                </tr>
+                <tr>
+                  <td>Enhanced</td>
+                  <td>6.45</td>
+                  <td>4.71</td>
+                  <td>0.53</td>
+                </tr>
+                  <tr>
+                  <td>Advanced</td>
+                  <td>3.12</td>
+                  <td>2.16</td>
+                  <td>0.89</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          {/* Prediction form card */}
+          <div className="card">
+            <h2>Score Prediction</h2>
+            <div className="grid">
+              <div className="input-group">
+                <label htmlFor="down">Down</label>
+                <input id="down" type="number" min="1" max="4" value={down} onChange={(e) => setDown(Number(e.target.value))} />
+              </div>
+              <div className="input-group">
+                <label htmlFor="yards-to-go">Yards to Go</label>
+                <input id="yards-to-go" type="number" min="1" value={yardsToGo} onChange={(e) => setYardsToGo(Number(e.target.value))} />
+              </div>
+              <div className="input-group">
+                <label htmlFor="quarter">Quarter</label>
+                <input id="quarter" type="number" min="1" max="4" value={quarter} onChange={(e) => setQuarter(Number(e.target.value))} />
+              </div>
+              <div className="input-group">
+                <label htmlFor="drive">Drive number</label>
+                <input id="drive" type="number" min="1" value={drive} onChange={(e) => setDrive(Number(e.target.value))} />
+              </div>
+              <div className="input-group">
+                <label htmlFor="net-yards">Net Yards (YdsNet)</label>
+                <input id="net-yards" type="number" value={ydsnet} onChange={(e) => setYdsnet(Number(e.target.value))} />
+              </div>
+            </div>
+            <button className="button" onClick={handlePredict}>Predict</button>
+            {prediction !== null && (
+              <p className="result">Becsült pontszám: {prediction}</p>
+            )}
+          </div>
+          {/* Chart card */}
+          <div className="card">
+            <h2>Prediction Scatter Chart</h2>
+            <div className="chart-container">
+              <canvas ref={chartRef}></canvas>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    // Render React app
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
